@@ -1,0 +1,23 @@
+{
+  "name": "sbt-webpack",
+  "version": "0.0.1",
+  "description": "",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/HomeBay/sbt-webpack.git"
+  },
+  "author": "Joe Zulli",
+  "license": "",
+  "bugs": {
+    "url": "https://github.com/HomeBay/sbt-webpack/issues"
+  },
+  "dependencies": {
+    "jsx-loader": "^0.12.2",
+    "webpack": "^1.5.3"
+  },
+  "devDependencies": {
+    "jsx-loader": "^0.12.2",
+    "webpack": "^1.5.3"
+  }
+}
