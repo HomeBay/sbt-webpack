@@ -1,10 +1,9 @@
-package com.homebay.sbt.stylus
+package com.homebay.sbt.webpack
 
 import sbt._
 import sbt.Keys._
 import com.typesafe.sbt.web._
 import com.typesafe.sbt.jse.SbtJsTask
-import spray.json._
 
 object Import {
 
@@ -33,11 +32,14 @@ object SbtWebpack extends AutoPlugin {
         moduleName := "webpack",
         shellFile := getClass.getClassLoader.getResource("webpack-shell.js"),
         includeFilter in Assets := "*.js" || "*.jsx",
-        includeFilter in TestAssets := (jsFilter in TestAssets).value,
+        includeFilter in TestAssets := "*.js" || "*.jsx",
         taskMessage in Assets := "Webpack running",
         taskMessage in TestAssets := "Webpack test running"
       )
-    ) ++ SbtJsTask.addJsSourceFileTasks(webpack)
+    ) ++ SbtJsTask.addJsSourceFileTasks(webpack) ++ Seq(
+      webpack in Assets := (webpack in Assets).dependsOn(nodeModules in Assets).value,
+      webpack in TestAssets := (webpack in TestAssets).dependsOn(nodeModules in TestAssets).value
+    )
   }
 
 }
