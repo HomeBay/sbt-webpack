@@ -12,9 +12,9 @@ licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0.html"
 
 
 // using package.json dependencies for now because webpack has a TON of transitive dependencies that are not represented
-//libraryDependencies ++= Seq(
-//  "org.webjars" % "webpack" % "1.5.3"
-//)
+libraryDependencies ++= Seq(
+  "org.webjars" % "webpack" % "1.5.3"
+)
 
 resolvers ++= Seq(
   "Typesafe Releases Repository" at "http://repo.typesafe.com/typesafe/releases/",
