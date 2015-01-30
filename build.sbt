@@ -10,7 +10,6 @@ scalaVersion := "2.10.4"
 
 licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0.html"))
 
-
 // using package.json dependencies for now because webpack has a TON of transitive dependencies that are not represented
 libraryDependencies ++= Seq(
   "org.webjars" % "webpack" % "1.5.3"
@@ -29,3 +28,6 @@ addSbtPlugin("com.typesafe.sbt" %% "sbt-js-engine" % "1.0.2")
 scriptedSettings
 
 scriptedLaunchOpts <+= version apply { v => s"-Dproject.version=$v" }
+
+publishTo := Some("HomeBay Artifactory Repo" at "http://zulli.artifactoryonline.com/zulli/plugins-snapshots-local")
+

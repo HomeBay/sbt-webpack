@@ -34,7 +34,8 @@ object SbtWebpack extends AutoPlugin {
     buildDir := (resourceManaged in webpack).value / "js-built",
     includeFilter in webpack := "*.js" || "*.jsx",
     deduplicators += SbtWeb.selectFileFrom((target in webpack).value),
-    webpack := runWebpack.value
+    webpack := runWebpack.value,
+    (nodeModuleDirectories in webpack in Plugin) += baseDirectory.value / "node_modules"
   )
 
 
@@ -47,8 +48,13 @@ object SbtWebpack extends AutoPlugin {
     SbtWeb.syncMappings(streams.value.cacheDirectory, optimizerMappings, appDir.value)
 
     val cacheDirectory = streams.value.cacheDirectory / webpack.key.label
-    val nodeModulePaths = (nodeModuleDirectories in Plugin).value.map(_.getPath)
-    val webpackExecutable = (webJarsNodeModulesDirectory in Plugin).value / "webpack" / "bin" / "webpack.js"
+    val nodeModulePaths: Seq[String] = (nodeModuleDirectories in webpack in Plugin).value.map(_.getPath)
+
+    // TODO Currently can't use the webjar because there are a ton of transitive dependency issues. See
+    // https://groups.google.com/forum/#!topic/play-framework/m2X8NQFk5bk for a discussion on the topic
+    //val webpackExecutable = (webJarsNodeModulesDirectory in Plugin).value / "webpack" / "bin" / "webpack.js"
+    val webpackExecutable = baseDirectory.value / "node_modules" / "webpack" / "bin" / "webpack.js"
+
     val args = Seq("--output-path", buildDir.value.getAbsolutePath)
 
     val runUpdate = FileFunction.cached(cacheDirectory, FilesInfo.hash) { _ =>
