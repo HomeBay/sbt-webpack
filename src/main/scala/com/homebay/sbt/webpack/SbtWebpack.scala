@@ -75,7 +75,7 @@ object SbtWebpack extends AutoPlugin {
     }
 
     val optimizedMappings = runUpdate(appDir.value.***.get.toSet).filter(_.isFile).pair(relativeTo(buildDir.value))
-    (mappings.toSet -- optimizerMappings.toSet ++ optimizedMappings).toSeq
+    (mappings.toSet ++ optimizedMappings).toSeq
   }
 
 }
