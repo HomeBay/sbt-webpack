@@ -8,10 +8,12 @@ import sbt._
 
 object Import {
 
+  val webpack = TaskKey[Seq[File]]("webpack", "Run the webpack module bundler.")
+
   object WebpackKeys {
-    val webpack = TaskKey[Pipeline.Stage]("webpack", "Invoke webpack on the asset pipeline.")
-    val appDir = SettingKey[File]("webpack-app-dir", "The top level directory that contains your app js files. In effect, this is the source folder that webpack reads from.")
-    val buildDir = SettingKey[File]("webpack-build-dir", "Where webpack should will write to.")
+
+    //val sourceDir = SettingKey[File]("webpack-source-dir", "The top level directory that contains your app js files. This is the source folder that webpack reads from.")
+    //val buildDir = SettingKey[File]("webpack-build-dir", "Where webpack should will write to.")
   }
 }
 
@@ -23,6 +25,7 @@ object SbtWebpack extends AutoPlugin {
 
   val autoImport = Import
 
+  import com.homebay.sbt.webpack.Import._
   import com.homebay.sbt.webpack.Import.WebpackKeys._
   import com.typesafe.sbt.jse.SbtJsEngine.autoImport.JsEngineKeys._
   import com.typesafe.sbt.jse.SbtJsTask.autoImport.JsTaskKeys._
@@ -30,24 +33,27 @@ object SbtWebpack extends AutoPlugin {
   import com.typesafe.sbt.web.SbtWeb.autoImport._
 
   override def projectSettings: Seq[Setting[_]] = Seq(
-    appDir := (resourceManaged in webpack).value / "appdir",
-    buildDir := (resourceManaged in webpack).value / "js-built",
     includeFilter in webpack := "*.js" || "*.jsx",
-    deduplicators += SbtWeb.selectFileFrom((target in webpack).value),
-    webpack := runWebpack.value,
-    (nodeModuleDirectories in webpack in Plugin) += baseDirectory.value / "node_modules"
+    (nodeModuleDirectories in webpack in Plugin) += baseDirectory.value / "node_modules",
+    webpack in Assets := runWebpack(Assets).dependsOn(webJarsNodeModules in Plugin).value,
+    webpack in TestAssets := runWebpack(TestAssets).dependsOn(webJarsNodeModules in Plugin).value,
+    resourceGenerators in Assets <+= webpack in Assets,
+    resourceGenerators in TestAssets <+= webpack in TestAssets,
+    resourceManaged in webpack in Assets := webTarget.value / webpack.key.label / "js-built",
+    resourceManaged in webpack in TestAssets := webTarget.value / webpack.key.label / "test-js-built"
   )
 
+  private def runWebpack(config: Configuration): Def.Initialize[Task[Seq[File]]] = Def.task {
 
-  def runWebpack: Def.Initialize[Task[Pipeline.Stage]] = Def.task { mappings =>
+    val sourceDir = (sourceDirectory in webpack in config).value
+    val outputDir = (resourceManaged in webpack in config).value
 
-    val include = (includeFilter in webpack).value
+    val inputFiles = (sourceDir ** (includeFilter in webpack).value).get
 
-    val optimizerMappings = mappings.filter(f => !f._1.isDirectory && include.accept(f._1))
+    // FIXME support all of the arguments mentioned here: http://webpack.github.io/docs/cli.html
+    val args = Seq("--output-path", outputDir.getAbsolutePath)
 
-    SbtWeb.syncMappings(streams.value.cacheDirectory, optimizerMappings, appDir.value)
-
-    val cacheDirectory = streams.value.cacheDirectory / webpack.key.label
+    // Running webpack as a node module for now
     val nodeModulePaths: Seq[String] = (nodeModuleDirectories in webpack in Plugin).value.map(_.getPath)
 
     // TODO Currently can't use the webjar because there are a ton of transitive dependency issues. See
@@ -55,11 +61,9 @@ object SbtWebpack extends AutoPlugin {
     //val webpackExecutable = (webJarsNodeModulesDirectory in Plugin).value / "webpack" / "bin" / "webpack.js"
     val webpackExecutable = baseDirectory.value / "node_modules" / "webpack" / "bin" / "webpack.js"
 
-    val args = Seq("--output-path", buildDir.value.getAbsolutePath)
+    streams.value.log.info(s"Optimizing ${inputFiles.size} Javascript file(s) with Webpack")
 
-    val runUpdate = FileFunction.cached(cacheDirectory, FilesInfo.hash) { _ =>
-
-      streams.value.log.info(s"Optimizing ${optimizerMappings.size} Javascript file(s) with Webpack")
+    try {
 
       SbtJsTask.executeJs(
         state.value,
@@ -68,14 +72,17 @@ object SbtWebpack extends AutoPlugin {
         nodeModulePaths,
         webpackExecutable,
         args,
-        (timeoutPerSource in webpack).value * optimizerMappings.size
+        (timeoutPerSource in webpack).value * inputFiles.size
       )
+    } catch {
 
-      buildDir.value.***.get.toSet
+      // FIXME get error handling to work
+      case failure: SbtJsTask.JsTaskFailure =>
+        failure.printStackTrace()
+        //CompileProblems.report(reporter.value, problems)
     }
-
-    val optimizedMappings = runUpdate(appDir.value.***.get.toSet).filter(_.isFile).pair(relativeTo(buildDir.value))
-    (mappings.toSet ++ optimizedMappings).toSeq
+    
+    outputDir.***.get
   }
 
 }
