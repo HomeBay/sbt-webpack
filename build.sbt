@@ -4,7 +4,7 @@ organization := "com.homebay.sbt"
 
 name := "sbt-webpack"
 
-version := "0.0.3-SNAPSHOT"
+version := "0.0.4-SNAPSHOT"
 
 scalaVersion := "2.10.4"
 

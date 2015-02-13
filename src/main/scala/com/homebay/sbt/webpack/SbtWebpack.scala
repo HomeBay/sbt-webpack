@@ -1,8 +1,6 @@
 package com.homebay.sbt.webpack
 
 import com.typesafe.sbt.jse.SbtJsTask
-import com.typesafe.sbt.web._
-import com.typesafe.sbt.web.pipeline.Pipeline
 import sbt.Keys._
 import sbt._
 
@@ -26,11 +24,11 @@ object SbtWebpack extends AutoPlugin {
   val autoImport = Import
 
   import com.homebay.sbt.webpack.Import._
-  import com.homebay.sbt.webpack.Import.WebpackKeys._
   import com.typesafe.sbt.jse.SbtJsEngine.autoImport.JsEngineKeys._
   import com.typesafe.sbt.jse.SbtJsTask.autoImport.JsTaskKeys._
   import com.typesafe.sbt.web.Import.WebKeys._
   import com.typesafe.sbt.web.SbtWeb.autoImport._
+
 
   override def projectSettings: Seq[Setting[_]] = Seq(
     includeFilter in webpack := "*.js" || "*.jsx",
@@ -40,7 +38,9 @@ object SbtWebpack extends AutoPlugin {
     resourceGenerators in Assets <+= webpack in Assets,
     resourceGenerators in TestAssets <+= webpack in TestAssets,
     resourceManaged in webpack in Assets := webTarget.value / webpack.key.label / "js-built",
-    resourceManaged in webpack in TestAssets := webTarget.value / webpack.key.label / "test-js-built"
+    resourceManaged in webpack in TestAssets := webTarget.value / webpack.key.label / "test-js-built",
+    resourceDirectories in Assets += (resourceManaged in webpack in Assets).value,
+    resourceDirectories in TestAssets += (resourceManaged in webpack in TestAssets).value
   )
 
   private def runWebpack(config: Configuration): Def.Initialize[Task[Seq[File]]] = Def.task {
