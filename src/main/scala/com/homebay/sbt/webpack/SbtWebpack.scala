@@ -34,13 +34,13 @@ object SbtWebpack extends AutoPlugin {
     includeFilter in webpack := "*.js" || "*.jsx",
     (nodeModuleDirectories in webpack in Plugin) += baseDirectory.value / "node_modules",
     webpack in Assets := runWebpack(Assets).dependsOn(webJarsNodeModules in Plugin).value,
-    webpack in TestAssets := runWebpack(TestAssets).dependsOn(webJarsNodeModules in Plugin).value,
+    //webpack in TestAssets := runWebpack(TestAssets).dependsOn(webJarsNodeModules in Plugin).value,
     resourceGenerators in Assets <+= webpack in Assets,
-    resourceGenerators in TestAssets <+= webpack in TestAssets,
-    resourceManaged in webpack in Assets := webTarget.value / webpack.key.label / "js-built",
-    resourceManaged in webpack in TestAssets := webTarget.value / webpack.key.label / "test-js-built",
-    resourceDirectories in Assets += (resourceManaged in webpack in Assets).value,
-    resourceDirectories in TestAssets += (resourceManaged in webpack in TestAssets).value
+    //resourceGenerators in TestAssets <+= webpack in TestAssets,
+    resourceManaged in webpack in Assets := webTarget.value / webpack.key.label,
+    //resourceManaged in webpack in TestAssets := webTarget.value / webpack.key.label / "test-js-built",
+    resourceDirectories in Assets += (resourceManaged in webpack in Assets).value
+    //resourceDirectories in TestAssets += (resourceManaged in webpack in TestAssets).value
   )
 
   private def runWebpack(config: Configuration): Def.Initialize[Task[Seq[File]]] = Def.task {
