@@ -81,7 +81,7 @@ object SbtWebpack extends AutoPlugin {
         failure.printStackTrace()
         //CompileProblems.report(reporter.value, problems)
     }
-    
+
     outputDir.***.get
   }
 
