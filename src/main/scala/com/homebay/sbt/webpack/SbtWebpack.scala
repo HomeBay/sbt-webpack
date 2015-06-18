@@ -55,7 +55,7 @@ object SbtWebpack extends AutoPlugin {
     //val webpackExecutable = (webJarsNodeModulesDirectory in Plugin).value / "webpack" / "bin" / "webpack.js"
     val webpackExecutable = baseDirectory.value / "node_modules" / "webpack" / "bin" / "webpack.js"
 
-    val args = Seq("--output-path", buildDir.value.getAbsolutePath)
+    val args = Seq("-p", "--optimize-dedupe", "--progress", "--output-path", buildDir.value.getAbsolutePath)
 
     val runUpdate = FileFunction.cached(cacheDirectory, FilesInfo.hash) { _ =>
 
