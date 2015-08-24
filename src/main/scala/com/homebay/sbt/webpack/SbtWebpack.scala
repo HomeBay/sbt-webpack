@@ -1,8 +1,10 @@
 package com.homebay.sbt.webpack
 
-import com.typesafe.sbt.jse.SbtJsTask
-import sbt.Keys._
 import sbt._
+import sbt.Keys._
+import com.typesafe.sbt.web.SbtWeb
+import com.typesafe.sbt.web.pipeline.Pipeline
+import com.typesafe.sbt.jse.{SbtJsEngine, SbtJsTask}
 
 object Import {
 
@@ -23,32 +25,55 @@ object SbtWebpack extends AutoPlugin {
 
   val autoImport = Import
 
-  import com.homebay.sbt.webpack.Import._
-  import com.typesafe.sbt.jse.SbtJsEngine.autoImport.JsEngineKeys._
-  import com.typesafe.sbt.jse.SbtJsTask.autoImport.JsTaskKeys._
-  import com.typesafe.sbt.web.Import.WebKeys._
-  import com.typesafe.sbt.web.SbtWeb.autoImport._
+  import SbtWeb.autoImport._
+  import WebKeys._
+  import SbtJsEngine.autoImport.JsEngineKeys._
+  import SbtJsTask.autoImport.JsTaskKeys._
+  import autoImport._
+  import WebpackKeys._
 
 
-  override def projectSettings: Seq[Setting[_]] = Seq(
-    includeFilter in webpack := "*.js" || "*.jsx",
+  override def projectSettings = Seq(
+    includeFilter in webpack := GlobFilter("*.js") || GlobFilter("*.jsx"),
+    excludeFilter in webpack := HiddenFileFilter,
+
     (nodeModuleDirectories in webpack in Plugin) += baseDirectory.value / "node_modules",
-    webpack in Assets := runWebpack(Assets).dependsOn(webJarsNodeModules in Plugin).value,
+
+    webpack := runWebpack(Assets).dependsOn(webJarsNodeModules in Assets).value,
     //webpack in TestAssets := runWebpack(TestAssets).dependsOn(webJarsNodeModules in Plugin).value,
+
     resourceGenerators in Assets <+= webpack in Assets,
     //resourceGenerators in TestAssets <+= webpack in TestAssets,
-    resourceManaged in webpack in Assets := webTarget.value / webpack.key.label,
+
+    resourceManaged in webpack := webTarget.value / webpack.key.label,
     //resourceManaged in webpack in TestAssets := webTarget.value / webpack.key.label / "test-js-built",
+
     resourceDirectories in Assets += (resourceManaged in webpack in Assets).value
     //resourceDirectories in TestAssets += (resourceManaged in webpack in TestAssets).value
   )
 
+  /**
+   * This caching logic was poached from
+   * https://github.com/matthewrennie/sbt-autoprefixer/blob/master/src/main/scala/net/matthewrennie/sbt/autoprefixer/SbtAutoprefixer.scala
+   * @param config
+   * @return
+   */
   private def runWebpack(config: Configuration): Def.Initialize[Task[Seq[File]]] = Def.task {
-
     val sourceDir = (sourceDirectory in webpack in config).value
-    val outputDir = (resourceManaged in webpack in config).value
+    val outputDir = (resourceManaged in webpack).value
 
-    val inputFiles = (sourceDir ** (includeFilter in webpack).value).get
+    val include = (includeFilter in webpack).value
+    val exclude = (excludeFilter in webpack).value
+
+    val mappings = (sourceDir ** (include -- exclude)).pair(f => Some(f.getPath))
+
+    SbtWeb.syncMappings(
+      streams.value.cacheDirectory,
+      mappings,
+      outputDir
+    )
+
+    val buildMappings = mappings.map(o => outputDir / o._2)
 
     // FIXME support all of the arguments mentioned here: http://webpack.github.io/docs/cli.html
     val args = Seq("--output-path", outputDir.getAbsolutePath)
@@ -58,31 +83,40 @@ object SbtWebpack extends AutoPlugin {
 
     // TODO Currently can't use the webjar because there are a ton of transitive dependency issues. See
     // https://groups.google.com/forum/#!topic/play-framework/m2X8NQFk5bk for a discussion on the topic
-    //val webpackExecutable = (webJarsNodeModulesDirectory in Plugin).value / "webpack" / "bin" / "webpack.js"
     val webpackExecutable = baseDirectory.value / "node_modules" / "webpack" / "bin" / "webpack.js"
 
-    streams.value.log.info(s"Optimizing ${inputFiles.size} Javascript file(s) with Webpack")
+    val cacheDirectory = streams.value.cacheDirectory / webpack.key.label
+    val runWebpack = FileFunction.cached(cacheDirectory, FilesInfo.hash) { inputFiles =>
+      streams.value.log.info(s"Optimizing ${inputFiles.size} Javascript file(s) with Webpack")
 
-    try {
+      if (inputFiles.size > 0) {
+        try {
 
-      SbtJsTask.executeJs(
-        state.value,
-        (engineType in webpack).value,
-        (command in webpack).value,
-        nodeModulePaths,
-        webpackExecutable,
-        args,
-        (timeoutPerSource in webpack).value * inputFiles.size
-      )
-    } catch {
+          SbtJsTask.executeJs(
+            state.value,
+            (engineType in webpack).value,
+            (command in webpack).value,
+            nodeModulePaths,
+            webpackExecutable,
+            args,
+            (timeoutPerSource in webpack).value * inputFiles.size
+          )
+        } catch {
 
-      // FIXME get error handling to work
-      case failure: SbtJsTask.JsTaskFailure =>
-        failure.printStackTrace()
-        //CompileProblems.report(reporter.value, problems)
+          // FIXME get error handling to work
+          case failure: SbtJsTask.JsTaskFailure =>
+            failure.printStackTrace()
+          //CompileProblems.report(reporter.value, problems)
+        }
+      }
+
+      outputDir.***.get.filter(!_.isDirectory).toSet
     }
 
-    outputDir.***.get
+    val webpackedMappings = runWebpack(buildMappings.toSet).pair(relativeTo(outputDir))
+    (mappings.toSet -- mappings ++ webpackedMappings).toSeq
+
+    webpackedMappings.map(_._1)
   }
 
 }
